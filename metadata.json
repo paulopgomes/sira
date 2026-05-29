@@ -1,0 +1,6 @@
+{
+  "name": "SIRA - Sistema Integrado de Registro de Atendimentos",
+  "description": "Sistema institucional para gestão e registro de atendimentos de saúde e assistência social.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
