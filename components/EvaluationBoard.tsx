@@ -38,6 +38,8 @@ interface Evaluation {
   created_at: string;
   deleted_at?: string | null;
   professional_name?: string;
+  professional_registration?: string;
+  professional_specialty?: string;
   patient?: { name: string };
   unit?: { name: string };
   system_user_id?: string;
@@ -171,7 +173,7 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
       // Fetch all professionals (active and inactive) so we don't fail mapping historical/deleted evolutions
       const { data: allProfessionalsData } = await supabase
         .from('professionals')
-        .select('id, name, status')
+        .select('id, name, status, specialty, registration')
         .order('name');
       
       const allProfs = allProfessionalsData || [];
@@ -357,17 +359,23 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
         const u = (usersData || []).find((usr: any) => usr.id === ev.system_user_id) || ev.system_user;
         let profName = u?.username || 'Profissional';
         let profId = '';
+        let profRegistration = '';
+        let profSpecialty = '';
         if (u) {
           const matchedProf = getProfessionalForUser(u, allProfs);
           if (matchedProf) {
             profName = matchedProf.name;
             profId = matchedProf.id;
+            profRegistration = matchedProf.registration || '';
+            profSpecialty = matchedProf.specialty || '';
           }
         }
         return {
           ...ev,
           professional_name: profName,
-          professional_id: profId
+          professional_id: profId,
+          professional_registration: profRegistration,
+          professional_specialty: profSpecialty
         };
       });
 
@@ -1432,32 +1440,36 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
 
       {/* Print View: formatted specifically for PDF and A4 print with page-breaks (quebra de página de impressão) */}
       <div className="print-only w-full text-[#1a1c1d] bg-white select-text">
-        <div className="flex justify-between items-start mb-6 pb-6 border-b-2 border-[#ed1c24]/10">
-          <div className="flex items-center gap-6 font-sans">
-            {unitLogoUrl ? (
-              <div className="w-24 h-24 flex items-center justify-center p-2 bg-white rounded-2xl shadow-sm border border-[#e8bcb7]/10 overflow-hidden">
-                <img src={unitLogoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
-              </div>
-            ) : (
-              <div className="w-24 h-24 flex items-center justify-center p-2 bg-[#f4f3f5] rounded-2xl border border-[#e8bcb7]/10">
-                <Building2 size={40} className="text-[#ed1c24] opacity-20" />
-              </div>
-            )}
-            <div>
-              <h1 className="text-2xl font-black text-[#ed1c24] uppercase tracking-tight">
-                {viewingItem ? 'Relatório de Evolução Individual' : 'Relatório de Evoluções de Atendimento'}
-              </h1>
-              <p className="text-xs font-bold text-[#5e3f3b] opacity-60 uppercase tracking-widest mt-1">SIRA - Sistema Integrado de Registro de Atendimentos</p>
-            </div>
-          </div>
-          <div className="text-right text-[10px] text-[#5e3f3b] font-medium mt-2">
-            <p>Data de Emissão: {formatDate(new Date().toISOString().split('T')[0])}</p>
-          </div>
-        </div>
-
         {/* If printing a single item */}
         {viewingItem ? (
-          <div className="flex flex-col justify-between" style={{ minHeight: '260mm' }}>
+          <div 
+            className="flex flex-col font-sans"
+            style={{ 
+              paddingBottom: '20px'
+            }}
+          >
+            {/* Page Header (with logo) */}
+            <div className="flex justify-between items-start mb-6 pb-6 border-b-2 border-[#ed1c24]/10">
+              <div className="flex items-center gap-6 font-sans">
+                {unitLogoUrl ? (
+                  <div className="w-20 h-20 flex items-center justify-center p-2 bg-white rounded-2xl shadow-sm border border-[#e8bcb7]/10 overflow-hidden">
+                    <img src={unitLogoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 flex items-center justify-center p-2 bg-[#f4f3f5] rounded-2xl border border-[#e8bcb7]/10">
+                    <Building2 size={32} className="text-[#ed1c24] opacity-20" />
+                  </div>
+                )}
+                <div>
+                  <h1 className="text-xl font-black text-[#ed1c24] uppercase tracking-tight">Relatório de Evolução Individual</h1>
+                  <p className="text-xs font-bold text-[#5e3f3b] opacity-60 uppercase tracking-widest mt-1">SIRA - Sistema Integrado de Registro de Atendimentos</p>
+                </div>
+              </div>
+              <div className="text-right text-[10px] text-[#5e3f3b] font-medium mt-2">
+                <p>Data de Emissão: {formatDate(new Date().toISOString().split('T')[0])}</p>
+              </div>
+            </div>
+
             <div className="space-y-6">
               <div className="flex justify-between items-start border-b border-[#e8bcb7]/20 pb-4">
                 <div>
@@ -1489,18 +1501,25 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
               </div>
 
               <div className="space-y-2">
-                <h4 className="text-[10px] font-black text-[#5e3f3b] opacity-60 uppercase tracking-widest">Descrição da Evolução</h4>
-                <div className="text-sm text-[#1a1c1d] leading-relaxed whitespace-pre-wrap p-6 border border-[#e8bcb7]/25 rounded-2xl bg-white min-h-[350px]">
+                <h4 className="text-[10px] font-black text-[#5e3f3b] opacity-60 uppercase tracking-widest w-full border-b border-[#e8bcb7]/15 pb-1">Descrição da Evolução</h4>
+                <div className="text-sm text-[#1a1c1d] leading-relaxed whitespace-pre-wrap p-6 border border-[#e8bcb7]/25 rounded-2xl bg-white min-h-[150px]">
                   {viewingItem.content}
                 </div>
               </div>
             </div>
 
-            <div className="mt-20 flex flex-col items-center pt-12 print-signature font-sans">
+            <div className="mt-12 flex flex-col items-center pt-8 print-signature font-sans break-inside-avoid">
               <div className="w-72 border-b border-[#1a1c1d] mb-3"></div>
               <div className="text-center">
                 <p className="text-sm font-bold text-[#1a1c1d]">{viewingItem.professional_name || '_____________________________'}</p>
-                <p className="text-[10px] font-medium text-[#5e3f3b] opacity-60">Profissional Responsável</p>
+                {viewingItem.professional_specialty && (
+                  <p className="text-[10px] font-bold text-[#ed1c24] uppercase tracking-wider mt-0.5">{viewingItem.professional_specialty}</p>
+                )}
+                {viewingItem.professional_registration ? (
+                  <p className="text-[10px] font-medium text-[#5e3f3b] opacity-65 mt-0.5">{viewingItem.professional_registration}</p>
+                ) : (
+                  <p className="text-[10px] font-medium text-[#5e3f3b] opacity-40 mt-0.5">Registro profissional não informado</p>
+                )}
               </div>
             </div>
           </div>
@@ -1509,15 +1528,36 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
           filteredEvaluations.map((ev, index) => (
             <div 
               key={`print-${ev.id}`} 
-              className="flex flex-col justify-between font-sans"
+              className="flex flex-col font-sans text-[#1a1c1d] bg-white bg-transparent"
               style={{ 
                 pageBreakAfter: index === filteredEvaluations.length - 1 ? 'auto' : 'always', 
                 breakAfter: index === filteredEvaluations.length - 1 ? 'auto' : 'page', 
-                minHeight: '260mm', 
                 paddingTop: index > 0 ? '40px' : '0px',
                 paddingBottom: '20px'
               }}
             >
+              {/* Page Header for each sheet (with logo) */}
+              <div className="flex justify-between items-start mb-6 pb-6 border-b-2 border-[#ed1c24]/10">
+                <div className="flex items-center gap-6 font-sans">
+                  {unitLogoUrl ? (
+                    <div className="w-20 h-20 flex items-center justify-center p-2 bg-white rounded-2xl shadow-sm border border-[#e8bcb7]/10 overflow-hidden">
+                      <img src={unitLogoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="w-20 h-20 flex items-center justify-center p-2 bg-[#f4f3f5] rounded-2xl border border-[#e8bcb7]/10">
+                      <Building2 size={32} className="text-[#ed1c24] opacity-20" />
+                    </div>
+                  )}
+                  <div>
+                    <h1 className="text-xl font-black text-[#ed1c24] uppercase tracking-tight">Relatório de Evolução Individual</h1>
+                    <p className="text-xs font-bold text-[#5e3f3b] opacity-60 uppercase tracking-widest mt-1">SIRA - Sistema Integrado de Registro de Atendimentos</p>
+                  </div>
+                </div>
+                <div className="text-right text-[10px] text-[#5e3f3b] font-medium mt-2">
+                  <p>Data de Emissão: {formatDate(new Date().toISOString().split('T')[0])}</p>
+                </div>
+              </div>
+
               <div className="space-y-6">
                 <div className="flex justify-between items-start border-b border-[#e8bcb7]/20 pb-4">
                   <div>
@@ -1549,18 +1589,25 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="text-[10px] font-black text-[#5e3f3b] opacity-60 uppercase tracking-widest">Descrição de Evolução</h4>
-                  <div className="text-sm text-[#1a1c1d] leading-relaxed whitespace-pre-wrap p-6 border border-[#e8bcb7]/25 rounded-2xl bg-white min-h-[350px]">
+                  <h4 className="text-[10px] font-black text-[#5e3f3b] opacity-60 uppercase tracking-widest w-full border-b border-[#e8bcb7]/15 pb-1">Descrição de Evolução</h4>
+                  <div className="text-sm text-[#1a1c1d] leading-relaxed whitespace-pre-wrap p-6 border border-[#e8bcb7]/25 rounded-2xl bg-white min-h-[150px]">
                     {ev.content}
                   </div>
                 </div>
               </div>
 
-              <div className="mt-20 flex flex-col items-center pt-12 print-signature">
+              <div className="mt-12 flex flex-col items-center pt-8 print-signature font-sans break-inside-avoid">
                 <div className="w-72 border-b border-[#1a1c1d] mb-3"></div>
                 <div className="text-center">
                   <p className="text-sm font-bold text-[#1a1c1d]">{ev.professional_name || '_____________________________'}</p>
-                  <p className="text-[10px] font-medium text-[#5e3f3b] opacity-60">Profissional Responsável</p>
+                  {ev.professional_specialty && (
+                    <p className="text-[10px] font-bold text-[#ed1c24] uppercase tracking-wider mt-0.5">{ev.professional_specialty}</p>
+                  )}
+                  {ev.professional_registration ? (
+                    <p className="text-[10px] font-medium text-[#5e3f3b] opacity-65 mt-0.5">{ev.professional_registration}</p>
+                  ) : (
+                    <p className="text-[10px] font-medium text-[#5e3f3b] opacity-40 mt-0.5">Registro profissional não informado</p>
+                  )}
                 </div>
               </div>
             </div>
