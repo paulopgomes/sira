@@ -99,9 +99,10 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
   const [availableAttendances, setAvailableAttendances] = useState<any[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
 
-  const fetchAvailableAttendances = async (patientId: string) => {
+  const fetchAvailableAttendances = async (patientId: string, currentEditingItem?: Evaluation | null) => {
     if (!patientId || !matchingProfId) return;
     setAttendanceLoading(true);
+    const activeEditItem = currentEditingItem !== undefined ? currentEditingItem : editingItem;
     try {
       // 1. Fetch all attendances for this patient by this professional
       const { data: attendanceData, error: attendanceError } = await supabase
@@ -139,15 +140,15 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
       // 3. Filter out dates that already have an evaluation and limit to 15
       // If we are editing, we should keep the current date of the item being edited in the list
       const filteredDates = sortedUniqueDates.filter(date => {
-        if (editingItem && editingItem.date === date) return true;
+        if (activeEditItem && activeEditItem.date === date) return true;
         return !evalDates.has(date);
       }).slice(0, 15);
       
       setAvailableAttendances(filteredDates.map(d => ({ date: d })));
       
-      // Auto-select the latest available date if creating new or if current date is not in the list
-      if (filteredDates.length > 0) {
-        if (!editingItem || !filteredDates.includes(formData.date)) {
+      // Auto-select the latest available date only if creating new (no activeEditItem) or if current date is not in list
+      if (!activeEditItem && filteredDates.length > 0) {
+        if (!filteredDates.includes(formData.date)) {
           setFormData(prev => ({ ...prev, date: filteredDates[0] }));
         }
       }
@@ -398,7 +399,7 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
         content: item.content,
         is_private: !!item.is_private
       });
-      fetchAvailableAttendances(item.patient_id);
+      fetchAvailableAttendances(item.patient_id, item);
     } else {
       setEditingItem(null);
       setFormData({
@@ -423,7 +424,8 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
     }
 
     // New validation: check if an attendance exists for this professional and date
-    const hasAttendance = availableAttendances.some(a => a.date === formData.date);
+    // If editing and the date is the same, allow it
+    const hasAttendance = availableAttendances.some(a => a.date === formData.date) || !!(editingItem && formData.date === editingItem.date);
     if (!hasAttendance && !isAdmin) {
       alert('Você só pode registrar evoluções para datas em que realizou um atendimento a este usuário.');
       return;
@@ -664,9 +666,9 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
               <button 
                 onClick={() => window.print()}
                 title="Imprimir evoluções filtradas com quebra de página"
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white text-[#1a1c1d] border border-[#e8bcb7]/30 hover:border-[#ed1c24]/30 hover:bg-[#faf9fb] px-4 py-3 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 whitespace-nowrap"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#ed1c24] text-white hover:bg-[#d11920] px-4 py-3 rounded-xl text-sm font-bold shadow-[0_4px_12px_rgba(237,28,36,0.25)] transition-all active:scale-95 whitespace-nowrap"
               >
-                <Printer size={18} className="text-[#ed1c24]" />
+                <Printer size={18} className="text-white" />
                 <span className="hidden sm:inline">Imprimir</span>
               </button>
             )}
@@ -994,7 +996,7 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
                   {formData.patient_id && (
                     <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                       <div className="flex items-center justify-between ml-2 sm:ml-4 gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-[#ed1c24]">Próximas Datas Disponíveis</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-[#ed1c24]">Datas Disponíveis</label>
                         {attendanceLoading && <div className="w-3 h-3 border-2 border-[#ed1c24]/20 border-t-[#ed1c24] rounded-full animate-spin shrink-0" />}
                       </div>
                       
@@ -1046,13 +1048,13 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
                         onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                         className={cn(
                           "w-full pl-11 sm:pl-14 pr-4 sm:pr-6 py-3 sm:py-4 bg-[#f4f3f5] rounded-xl sm:rounded-2xl text-sm font-bold border-none focus:ring-2 focus:ring-[#ed1c24]/20 transition-all uppercase",
-                          formData.patient_id && !availableAttendances.some(a => a.date === formData.date) && !isAdmin && "text-red-500 ring-2 ring-red-500/20"
+                          formData.patient_id && !availableAttendances.some(a => a.date === formData.date) && !(editingItem && formData.date === editingItem.date) && !isAdmin && "text-red-500 ring-2 ring-red-500/20"
                         )}
                         required
                         disabled={!formData.patient_id && !isAdmin}
                       />
                     </div>
-                    {formData.patient_id && !availableAttendances.some(a => a.date === formData.date) && !isAdmin && (
+                    {formData.patient_id && !availableAttendances.some(a => a.date === formData.date) && !(editingItem && formData.date === editingItem.date) && !isAdmin && (
                       <p className="text-[9px] font-bold text-red-500 ml-2 sm:ml-4 mt-1">
                         ⚠️ Escolha uma das datas destacadas acima que possuem registro de atendimento.
                       </p>
@@ -1259,9 +1261,9 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
                   onClick={() => {
                     window.print();
                   }}
-                  className="w-full sm:flex-1 bg-white border border-[#e8bcb7]/30 text-[#1a1c1d] hover:bg-[#faf9fb] hover:border-[#ed1c24]/30 font-bold py-3.5 sm:py-4 rounded-xl sm:rounded-2xl text-sm transition-all active:scale-95 order-3 sm:order-2 flex items-center justify-center gap-2"
+                  className="w-full sm:flex-1 bg-[#ed1c24] text-white hover:bg-[#d11920] font-bold py-3.5 sm:py-4 rounded-xl sm:rounded-2xl text-sm shadow-[0_4px_12px_rgba(237,28,36,0.25)] transition-all active:scale-95 order-3 sm:order-2 flex items-center justify-center gap-2"
                 >
-                  <Printer size={16} className="text-[#ed1c24]" />
+                  <Printer size={16} className="text-white" />
                   Imprimir esta Evolução
                 </button>
                 <button 
