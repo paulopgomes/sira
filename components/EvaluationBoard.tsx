@@ -41,7 +41,7 @@ interface Evaluation {
   professional_registration?: string;
   professional_specialty?: string;
   patient?: { name: string };
-  unit?: { name: string };
+  unit?: { name: string; logo_url?: string | null };
   system_user_id?: string;
 }
 
@@ -266,7 +266,7 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
         .select(`
           *,
           patient:patients(name, unit_id),
-          unit:units(name),
+          unit:units(name, logo_url),
           system_user:system_users(id, username, email)
         `);
       
@@ -1451,9 +1451,9 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
             {/* Page Header (with logo) */}
             <div className="flex justify-between items-start mb-6 pb-6 border-b-2 border-[#ed1c24]/10">
               <div className="flex items-center gap-6 font-sans">
-                {unitLogoUrl ? (
+                {(viewingItem.unit?.logo_url || unitLogoUrl) ? (
                   <div className="w-20 h-20 flex items-center justify-center p-2 bg-white rounded-2xl shadow-sm border border-[#e8bcb7]/10 overflow-hidden">
-                    <img src={unitLogoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+                    <img src={viewingItem.unit?.logo_url || unitLogoUrl || ''} alt="Logo" className="max-w-full max-h-full object-contain" />
                   </div>
                 ) : (
                   <div className="w-20 h-20 flex items-center justify-center p-2 bg-[#f4f3f5] rounded-2xl border border-[#e8bcb7]/10">
@@ -1508,18 +1508,14 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
               </div>
             </div>
 
-            <div className="mt-12 flex flex-col items-center pt-8 print-signature font-sans break-inside-avoid">
+            <div className="mt-12 flex flex-col items-center pt-8 border-t border-[#e8bcb7]/20 print-signature font-sans break-inside-avoid">
               <div className="w-72 border-b border-[#1a1c1d] mb-3"></div>
               <div className="text-center">
                 <p className="text-sm font-bold text-[#1a1c1d]">{viewingItem.professional_name || '_____________________________'}</p>
-                {viewingItem.professional_specialty && (
-                  <p className="text-[10px] font-bold text-[#ed1c24] uppercase tracking-wider mt-0.5">{viewingItem.professional_specialty}</p>
-                )}
-                {viewingItem.professional_registration ? (
-                  <p className="text-[10px] font-medium text-[#5e3f3b] opacity-65 mt-0.5">{viewingItem.professional_registration}</p>
-                ) : (
-                  <p className="text-[10px] font-medium text-[#5e3f3b] opacity-40 mt-0.5">Registro profissional não informado</p>
-                )}
+                <p className="text-[10px] font-medium text-[#5e3f3b] opacity-60">
+                  {viewingItem.professional_specialty || 'Profissional'} 
+                  {viewingItem.professional_registration ? ` - ${viewingItem.professional_registration}` : ''}
+                </p>
               </div>
             </div>
           </div>
@@ -1539,9 +1535,9 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
               {/* Page Header for each sheet (with logo) */}
               <div className="flex justify-between items-start mb-6 pb-6 border-b-2 border-[#ed1c24]/10">
                 <div className="flex items-center gap-6 font-sans">
-                  {unitLogoUrl ? (
+                  {(ev.unit?.logo_url || unitLogoUrl) ? (
                     <div className="w-20 h-20 flex items-center justify-center p-2 bg-white rounded-2xl shadow-sm border border-[#e8bcb7]/10 overflow-hidden">
-                      <img src={unitLogoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+                      <img src={ev.unit?.logo_url || unitLogoUrl || ''} alt="Logo" className="max-w-full max-h-full object-contain" />
                     </div>
                   ) : (
                     <div className="w-20 h-20 flex items-center justify-center p-2 bg-[#f4f3f5] rounded-2xl border border-[#e8bcb7]/10">
@@ -1596,18 +1592,14 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
                 </div>
               </div>
 
-              <div className="mt-12 flex flex-col items-center pt-8 print-signature font-sans break-inside-avoid">
+              <div className="mt-12 flex flex-col items-center pt-8 border-t border-[#e8bcb7]/20 print-signature font-sans break-inside-avoid">
                 <div className="w-72 border-b border-[#1a1c1d] mb-3"></div>
                 <div className="text-center">
                   <p className="text-sm font-bold text-[#1a1c1d]">{ev.professional_name || '_____________________________'}</p>
-                  {ev.professional_specialty && (
-                    <p className="text-[10px] font-bold text-[#ed1c24] uppercase tracking-wider mt-0.5">{ev.professional_specialty}</p>
-                  )}
-                  {ev.professional_registration ? (
-                    <p className="text-[10px] font-medium text-[#5e3f3b] opacity-65 mt-0.5">{ev.professional_registration}</p>
-                  ) : (
-                    <p className="text-[10px] font-medium text-[#5e3f3b] opacity-40 mt-0.5">Registro profissional não informado</p>
-                  )}
+                  <p className="text-[10px] font-medium text-[#5e3f3b] opacity-60">
+                    {ev.professional_specialty || 'Profissional'} 
+                    {ev.professional_registration ? ` - ${ev.professional_registration}` : ''}
+                  </p>
                 </div>
               </div>
             </div>
