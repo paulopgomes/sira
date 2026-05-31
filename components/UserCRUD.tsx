@@ -745,7 +745,7 @@ Dica: ${hint}`);
   return (
     <>
       <div className="space-y-6">
-        <div className="bg-white p-4 sm:p-6 rounded-[1.5rem] shadow-sm border border-[#e8bcb7]/10">
+        <div className="bg-white p-4 sm:p-6 rounded-[1.5rem] shadow-sm border border-[#e8bcb7]/10 no-print">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-4">
             <div className="flex-1 space-y-1.5 sm:space-y-2">
               <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 ml-1">
@@ -774,7 +774,7 @@ Dica: ${hint}`);
         </div>
 
       <div className={cn(
-        "space-y-6 transition-all duration-300",
+        "space-y-6 transition-all duration-300 no-print",
         !selectedUnitId ? "opacity-40 pointer-events-none grayscale" : "opacity-100"
       )}>
         <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
@@ -1011,7 +1011,7 @@ Dica: ${hint}`);
 
       {/* Notificação de Sucesso */}
       {showSuccessToast.show && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] animate-in fade-in slide-in-from-top-4 duration-300">
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] animate-in fade-in slide-in-from-top-4 duration-300 no-print">
           <div className="bg-green-600 text-white px-6 py-4 rounded-[2rem] shadow-2xl flex items-center gap-3 border border-white/20">
             <div className="bg-white rounded-full p-1.5 shadow-sm">
               <CheckCircle size={20} className="text-green-600" />
@@ -1032,7 +1032,7 @@ Dica: ${hint}`);
 
       {/* Duplicate Error Modal */}
       {isDuplicateModalOpen && duplicateErrorInfo && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 no-print">
           <div 
             onClick={() => setIsDuplicateModalOpen(false)}
             className="absolute inset-0 bg-[#1a1c1d]/40 backdrop-blur-sm"
@@ -1295,7 +1295,7 @@ Dica: ${hint}`);
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 no-print">
           <div 
             onClick={() => setIsDeleteModalOpen(false)}
             className="absolute inset-0 bg-[#1a1c1d]/40 backdrop-blur-sm"
@@ -1330,7 +1330,7 @@ Dica: ${hint}`);
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 no-print">
           <div 
             onClick={() => setIsModalOpen(false)}
             className="absolute inset-0 bg-[#1a1c1d]/40 backdrop-blur-sm"
@@ -1677,7 +1677,7 @@ Dica: ${hint}`);
 
       {/* Attendance History Modal */}
       {isAttendanceModalOpen && viewingAttendanceUser && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 no-print">
           <div 
             onClick={() => setIsAttendanceModalOpen(false)}
             className="absolute inset-0 bg-[#1a1c1d]/40 backdrop-blur-sm"
