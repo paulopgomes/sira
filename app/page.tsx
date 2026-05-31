@@ -63,6 +63,7 @@ function DashboardContent() {
   const [unitLogoUrl, setUnitLogoUrl] = useState<string | null>(null);
   const [dbError, setDbError] = useState<string | null>(null);
   const [archivedPeriods, setArchivedPeriods] = useState<any[]>([]);
+  const [activeEvaluationId, setActiveEvaluationId] = useState<string | null>(null);
 
   // Compute first and last name for current logged-in user
   const userDisplayName = useMemo(() => {
@@ -744,7 +745,7 @@ function DashboardContent() {
       />
       
       <main className={cn(
-        "flex-1 flex flex-col transition-all duration-300 ease-in-out",
+        "flex-1 flex flex-col transition-all duration-300 ease-in-out min-w-0 overflow-x-hidden",
         "lg:ml-20",
         !isSidebarCollapsed && "lg:ml-72",
         "ml-0"
@@ -1111,7 +1112,12 @@ function DashboardContent() {
               </div>
             ) : currentView === 'avaliacoes' ? (
               <div>
-                <EvaluationBoard currentUser={currentUser!} unitLogoUrl={unitLogoUrl} />
+                <EvaluationBoard 
+                  currentUser={currentUser!} 
+                  unitLogoUrl={unitLogoUrl} 
+                  activeEvaluationId={activeEvaluationId}
+                  onClearActiveEvaluation={() => setActiveEvaluationId(null)}
+                />
               </div>
             ) : currentView === 'relatorios_personalizados' ? (
               <div>
@@ -1123,6 +1129,10 @@ function DashboardContent() {
                   onUpdate={syncData} 
                   permission={currentUser?.permission || ''} 
                   userId={currentUser?.id || ''}
+                  onNavigateToEvaluation={(evaluationId: string) => {
+                    setActiveEvaluationId(evaluationId);
+                    setCurrentView('avaliacoes');
+                  }}
                 />
               </div>
             ) : currentView === 'projetos' ? (

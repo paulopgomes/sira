@@ -17,7 +17,12 @@ import {
   MapPin,
   CreditCard,
   FileText,
-  Activity
+  Activity,
+  TrendingUp,
+  Printer,
+  Lock,
+  Unlock,
+  Building2
 } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -50,6 +55,7 @@ interface UserCRUDProps {
   onUpdate?: () => void;
   permission: string;
   userId: string;
+  onNavigateToEvaluation?: (evaluationId: string) => void;
 }
 
 const calculateAge = (birthDateStr: string) => {
@@ -65,7 +71,7 @@ const calculateAge = (birthDateStr: string) => {
   return `${age} anos`;
 };
 
-export function UserCRUD({ onUpdate, permission, userId }: UserCRUDProps) {
+export function UserCRUD({ onUpdate, permission, userId, onNavigateToEvaluation }: UserCRUDProps) {
   const isAdmin = permission === 'Administrador';
   const [users, setUsers] = useState<User[]>([]);
   const [units, setUnits] = useState<{ id: string; name: string }[]>([]);
@@ -89,6 +95,8 @@ export function UserCRUD({ onUpdate, permission, userId }: UserCRUDProps) {
   const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
+  const [selectedEvalToView, setSelectedEvalToView] = useState<any | null>(null);
+  const [isLoadingEvalDetail, setIsLoadingEvalDetail] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Form state
@@ -456,13 +464,14 @@ Dica: ${hint}`);
     setIsAttendanceModalOpen(true);
     setIsLoadingAttendance(true);
     try {
-      const { data, error } = await supabase
+      const { data: attendanceData, error: attendanceError } = await supabase
         .from('attendance')
         .select(`
           id,
           day,
           month,
           year,
+          professional_id,
           projects(name),
           professionals(name),
           modalities(name)
@@ -472,12 +481,207 @@ Dica: ${hint}`);
         .order('month', { ascending: false })
         .order('day', { ascending: false });
       
-      if (error) throw error;
-      setAttendanceHistory(data || []);
+      if (attendanceError) throw attendanceError;
+
+      // Fetch active patient evaluations for this patient
+      const { data: evalsData, error: evalsError } = await supabase
+        .from('patient_evaluations')
+        .select('id, date, system_user_id')
+        .eq('patient_id', user.id)
+        .is('deleted_at', null);
+
+      if (evalsError) throw evalsError;
+
+      // Fetch system users and professionals lists for mapping
+      const { data: usersData } = await supabase
+        .from('system_users')
+        .select('id, username, email');
+      
+      const { data: profsData } = await supabase
+        .from('professionals')
+        .select('id, name, specialty, registration')
+        .order('name');
+
+      const allUsers = usersData || [];
+      const allProfs = profsData || [];
+
+      // Helper to find professional_id from system_user_id
+      const getProfIdForUser = (userId: string) => {
+        const u = allUsers.find((usr: any) => usr.id === userId);
+        if (!u) return null;
+
+        // Direct match by email starting with prof_UUID
+        if (u.email && u.email.toLowerCase().startsWith('prof_')) {
+          const expectedProfId = u.email.toLowerCase().replace('prof_', '').split('@')[0];
+          const match = allProfs.find((p: any) => p.id === expectedProfId);
+          if (match) return match.id;
+        }
+
+        const sanitizeStr = (str: string) => 
+          str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9.]/g, "") : "";
+
+        const userUsernameSanitized = sanitizeStr(u.username);
+
+        const getProfessionalUsername = (name: string) => {
+          const nameParts = name.trim().split(/\s+/);
+          let username = '';
+          if (nameParts.length >= 2) {
+            username = `${nameParts[0].toLowerCase()}.${nameParts[nameParts.length - 1].toLowerCase()}`;
+          } else {
+            username = nameParts[0].toLowerCase();
+          }
+          return username.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9.]/g, "");
+        };
+
+        // Find exact username match first
+        const exactUsernameMatch = allProfs.find((p: any) => {
+          const pUsername = getProfessionalUsername(p.name);
+          return sanitizeStr(pUsername) === userUsernameSanitized;
+        });
+        if (exactUsernameMatch) return exactUsernameMatch.id;
+
+        // Fuzzy match
+        const fuzzyMatch = allProfs.find((p: any) => {
+          const profNameSanitized = sanitizeStr(p.name);
+          const nameParts = p.name.trim().split(/\s+/);
+          let firstLast = "";
+          if (nameParts.length >= 2) {
+            firstLast = sanitizeStr(`${nameParts[0]}.${nameParts[nameParts.length - 1]}`);
+          } else {
+            firstLast = sanitizeStr(nameParts[0]);
+          }
+          return profNameSanitized === userUsernameSanitized || firstLast === userUsernameSanitized || userUsernameSanitized.startsWith(firstLast);
+        });
+
+        return fuzzyMatch ? fuzzyMatch.id : null;
+      };
+
+      // Map evaluations with their corresponding professional ID
+      const mappedEvals = (evalsData || []).map((ev: any) => {
+        const professionalId = getProfIdForUser(ev.system_user_id);
+        return {
+          id: ev.id,
+          date: ev.date,
+          professional_id: professionalId
+        };
+      });
+
+      // Match each attendance in the list with its evaluation
+      const historyWithEvals = (attendanceData || []).map((att: any) => {
+        const formattedDate = `${att.year}-${String(att.month).padStart(2, '0')}-${String(att.day).padStart(2, '0')}`;
+        // Find if there's an evaluation of the same date and same professional
+        const matchedEval = mappedEvals.find((ev: any) => {
+          const dateMatch = ev.date === formattedDate;
+          const profMatch = !ev.professional_id || !att.professional_id || ev.professional_id === att.professional_id;
+          return dateMatch && profMatch;
+        });
+
+        return {
+          ...att,
+          evaluation_id: matchedEval ? matchedEval.id : null
+        };
+      });
+
+      setAttendanceHistory(historyWithEvals);
     } catch (err) {
-      console.error('Erro ao buscar histórico de atendimentos:', err);
+      console.error('Erro ao buscar histórico de atendimentos com evoluções:', err);
     } finally {
       setIsLoadingAttendance(false);
+    }
+  };
+
+  const handleViewEvaluation = async (evaluationId: string) => {
+    setIsLoadingEvalDetail(true);
+    setSelectedEvalToView({ id: evaluationId, loading: true });
+    try {
+      const { data: evDetail, error: evError } = await supabase
+        .from('patient_evaluations')
+        .select(`
+          *,
+          patient:patients(name),
+          unit:units(name, logo_url),
+          system_user:system_users(id, username, email)
+        `)
+        .eq('id', evaluationId)
+        .single();
+
+      if (evError) throw evError;
+
+      let profName = evDetail.system_user?.username || 'Profissional';
+      let profSpecialty = '';
+      let profRegistration = '';
+
+      if (evDetail.system_user) {
+        const { data: profsData } = await supabase
+          .from('professionals')
+          .select('id, name, specialty, registration')
+          .order('name');
+
+        const allProfs = profsData || [];
+        const u = evDetail.system_user;
+        let matchedProf = null;
+
+        if (u.email && u.email.toLowerCase().startsWith('prof_')) {
+          const expectedProfId = u.email.toLowerCase().replace('prof_', '').split('@')[0];
+          matchedProf = allProfs.find((p: any) => p.id === expectedProfId);
+        }
+
+        if (!matchedProf) {
+          const sanitizeStr = (str: string) => 
+            str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9.]/g, "") : "";
+
+          const userUsernameSanitized = sanitizeStr(u.username);
+
+          const getProfessionalUsername = (name: string) => {
+            const nameParts = name.trim().split(/\s+/);
+            let uname = '';
+            if (nameParts.length >= 2) {
+              uname = `${nameParts[0].toLowerCase()}.${nameParts[nameParts.length - 1].toLowerCase()}`;
+            } else {
+              uname = nameParts[0].toLowerCase();
+            }
+            return uname.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9.]/g, "");
+          };
+
+          matchedProf = allProfs.find((p: any) => {
+            const pUsername = getProfessionalUsername(p.name);
+            return sanitizeStr(pUsername) === userUsernameSanitized;
+          });
+
+          if (!matchedProf) {
+            matchedProf = allProfs.find((p: any) => {
+              const profNameSanitized = sanitizeStr(p.name);
+              const nameParts = p.name.trim().split(/\s+/);
+              let firstLast = "";
+              if (nameParts.length >= 2) {
+                firstLast = sanitizeStr(`${nameParts[0]}.${nameParts[nameParts.length - 1]}`);
+              } else {
+                firstLast = sanitizeStr(nameParts[0]);
+              }
+              return profNameSanitized === userUsernameSanitized || firstLast === userUsernameSanitized || userUsernameSanitized.startsWith(firstLast);
+            });
+          }
+        }
+
+        if (matchedProf) {
+          profName = matchedProf.name;
+          profSpecialty = matchedProf.specialty || '';
+          profRegistration = matchedProf.registration || '';
+        }
+      }
+
+      setSelectedEvalToView({
+        ...evDetail,
+        professional_name: profName,
+        professional_specialty: profSpecialty,
+        professional_registration: profRegistration,
+        loading: false
+      });
+    } catch (err) {
+      console.error('Erro ao buscar detalhes da evolução:', err);
+      setSelectedEvalToView(null);
+    } finally {
+      setIsLoadingEvalDetail(false);
     }
   };
 
@@ -542,32 +746,32 @@ Dica: ${hint}`);
     <>
       <div className="space-y-6">
         <div className="bg-white p-4 sm:p-6 rounded-[1.5rem] shadow-sm border border-[#e8bcb7]/10">
-        <div className="flex flex-col sm:flex-row items-end gap-4">
-          <div className="flex-1 space-y-1.5 sm:space-y-2">
-            <div className="flex justify-between items-center ml-1">
-              <label className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b]">Selecione a Unidade para Gerenciar Usuários</label>
-              {selectedUnitId && !isLoading && (
-                <div className="flex items-center gap-1.5">
-                  <UserCheck size={12} className="text-green-600" />
-                  <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                    {activeUsersCount} {activeUsersCount === 1 ? 'Usuário Ativo' : 'Usuários Ativos'}
-                  </span>
-                </div>
-              )}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-4">
+            <div className="flex-1 space-y-1.5 sm:space-y-2">
+              <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 ml-1">
+                <label className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b]">Selecione a Unidade para Gerenciar Usuários</label>
+                {selectedUnitId && !isLoading && (
+                  <div className="flex items-center gap-1.5 self-start xs:self-center">
+                    <UserCheck size={12} className="text-green-600" />
+                    <span className="text-[9.5px] font-bold text-green-600 bg-green-50 px-2.5 py-0.5 rounded-full">
+                      {activeUsersCount} {activeUsersCount === 1 ? 'Usuário Ativo' : 'Usuários Ativos'}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <select 
+                className="w-full bg-[#f4f3f5] border-0 rounded-xl py-2.5 sm:py-3 px-4 text-xs sm:text-sm focus:ring-2 focus:ring-[#ed1c24] outline-none appearance-none cursor-pointer font-bold text-[#5e3f3b]"
+                value={selectedUnitId}
+                onChange={(e) => setSelectedUnitId(e.target.value)}
+              >
+                <option value="">Selecione uma unidade...</option>
+                {units.map(unit => (
+                  <option key={unit.id} value={unit.id}>{unit.name}</option>
+                ))}
+              </select>
             </div>
-            <select 
-              className="w-full bg-[#f4f3f5] border-0 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#ed1c24] outline-none appearance-none cursor-pointer"
-              value={selectedUnitId}
-              onChange={(e) => setSelectedUnitId(e.target.value)}
-            >
-              <option value="">Selecione uma unidade...</option>
-              {units.map(unit => (
-                <option key={unit.id} value={unit.id}>{unit.name}</option>
-              ))}
-            </select>
           </div>
         </div>
-      </div>
 
       <div className={cn(
         "space-y-6 transition-all duration-300",
@@ -623,11 +827,11 @@ Dica: ${hint}`);
           <table className="w-full border-collapse min-w-full">
             <thead>
               <tr className="bg-[#f4f3f5]">
-                <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b]">Usuário / Prontuário</th>
-                <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b]">CPF</th>
-                <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b]">Nascimento</th>
-                <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b]">Status</th>
-                <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b]">Ações</th>
+                <th className="px-3 md:px-5 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b]">Usuário / Prontuário</th>
+                <th className="px-3 md:px-5 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b]">CPF</th>
+                <th className="px-3 md:px-5 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b]">Nascimento</th>
+                <th className="px-3 md:px-5 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b]">Status</th>
+                <th className="px-3 md:px-5 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b]">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f4f3f5]">
@@ -637,7 +841,7 @@ Dica: ${hint}`);
                   onClick={() => setViewingUser(user)}
                   className="hover:bg-[#faf9fb] transition-all duration-200 group cursor-pointer"
                 >
-                  <td className="px-6 py-4">
+                  <td className="px-3 md:px-5 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-[#ed1c24]/10 flex items-center justify-center text-[#ed1c24] font-black text-xs shrink-0 group-hover:bg-[#ed1c24] group-hover:text-white transition-all duration-300">
                         {user.name.charAt(0).toUpperCase()}
@@ -648,12 +852,12 @@ Dica: ${hint}`);
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 md:px-5 py-4">
                     <span className="text-sm font-semibold text-[#1a1c1d] whitespace-nowrap">
                       {user.cpf || <span className="text-[#5e3f3b]/30 italic text-xs">Não informado</span>}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 md:px-5 py-4">
                     <div className="flex flex-col min-w-0">
                       <span className="text-sm font-semibold text-[#1a1c1d] whitespace-nowrap">
                         {isMounted && user.birth_date ? formatDate(user.birth_date) : ''}
@@ -665,7 +869,7 @@ Dica: ${hint}`);
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 md:px-5 py-4">
                     <span className={cn(
                       "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider",
                       user.status === 'Ativo' ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500"
@@ -673,7 +877,7 @@ Dica: ${hint}`);
                       {user.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-3 md:px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-end gap-1.5 items-center">
                       <button 
                         onClick={() => handleViewAttendance(user)}
@@ -708,7 +912,7 @@ Dica: ${hint}`);
               ))}
               {filteredUsers.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
+                  <td colSpan={5} className="px-3 md:px-5 py-12 text-center">
                     <div className="flex flex-col items-center gap-2 opacity-40">
                       <AlertCircle size={32} />
                       <p className="text-sm font-medium">Nenhum usuário encontrado nesta unidade.</p>
@@ -760,33 +964,33 @@ Dica: ${hint}`);
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+              <div className="grid grid-cols-3 gap-1.5 pt-1" onClick={(e) => e.stopPropagation()}>
                 <button 
                   onClick={() => handleViewAttendance(user)}
-                  className="flex-1 min-w-[80px] flex items-center justify-center gap-1.5 bg-[#f4f3f5] text-[#5e3f3b] py-2.5 px-3 rounded-xl text-xs font-bold active:scale-95"
+                  className="flex items-center justify-center gap-1 bg-[#f4f3f5] text-[#5e3f3b] py-2 px-1.5 rounded-lg text-[10px] sm:text-xs font-black active:scale-95"
                 >
-                  <History size={14} />
+                  <History size={12} className="shrink-0" />
                   <span>Histórico</span>
                 </button>
                 {!isReadOnly ? (
                   <>
                     <button 
                       onClick={() => handleOpenModal(user)}
-                      className="flex-1 min-w-[80px] flex items-center justify-center gap-1.5 bg-[#f4f3f5] text-[#5e3f3b] py-2.5 px-3 rounded-xl text-xs font-bold active:scale-95"
+                      className="flex items-center justify-center gap-1 bg-[#f4f3f5] text-[#5e3f3b] py-2 px-1.5 rounded-lg text-[10px] sm:text-xs font-black active:scale-95"
                     >
-                      <Edit2 size={14} />
+                      <Edit2 size={12} className="shrink-0" />
                       <span>Editar</span>
                     </button>
                     <button 
                       onClick={() => handleDeleteClick(user.id)}
-                      className="flex-1 min-w-[80px] flex items-center justify-center gap-1.5 bg-[#ed1c24]/10 text-[#ed1c24] py-2.5 px-2 rounded-xl text-xs font-bold active:scale-95"
+                      className="flex items-center justify-center gap-1 bg-[#ed1c24]/10 text-[#ed1c24] py-2 px-1.5 rounded-lg text-[10px] sm:text-xs font-black active:scale-95"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={12} className="shrink-0" />
                       <span>Excluir</span>
                     </button>
                   </>
                 ) : (
-                  <span className="flex-1 text-center py-2 text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b] opacity-40">Visualização</span>
+                  <span className="col-span-2 text-center py-2 text-[9px] font-bold uppercase tracking-widest text-[#5e3f3b] opacity-40">Apenas Visualização</span>
                 )}
               </div>
             </div>
@@ -1132,10 +1336,10 @@ Dica: ${hint}`);
             className="absolute inset-0 bg-[#1a1c1d]/40 backdrop-blur-sm"
           />
           <div 
-            className="relative w-full max-h-[90vh] sm:max-w-xl bg-white rounded-[2rem] shadow-2xl overflow-y-auto scrollbar-thin"
+            className="relative w-full max-w-xl max-h-[90vh] bg-white rounded-2xl sm:rounded-[2.5rem] shadow-2xl overflow-y-auto scrollbar-thin"
           >
-              <div className="p-6 sm:p-8">
-                <div className="flex justify-between items-center mb-6 sm:mb-8">
+              <div className="p-5 sm:p-8">
+                <div className="flex justify-between items-center mb-5 sm:mb-8">
                   <h2 className="text-xl sm:text-2xl font-black text-[#1a1c1d]">
                     {editingUser ? 'Editar Usuário' : 'Novo Usuário'}
                   </h2>
@@ -1479,27 +1683,27 @@ Dica: ${hint}`);
             className="absolute inset-0 bg-[#1a1c1d]/40 backdrop-blur-sm"
           />
           <div 
-            className="relative w-full max-w-2xl max-h-[85vh] bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col"
+            className="relative w-full max-w-2xl max-h-[85vh] bg-white rounded-2xl sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
           >
-            <div className="p-6 sm:p-8 border-b border-[#f4f3f5] flex justify-between items-center bg-[#f4f3f5]/30">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-[#ed1c24] shadow-sm">
-                  <History size={24} />
+            <div className="p-5 sm:p-8 border-b border-[#f4f3f5] flex justify-between items-center bg-[#f4f3f5]/30">
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white flex items-center justify-center text-[#ed1c24] shadow-sm shrink-0">
+                  <History size={18} className="sm:w-6 sm:h-6" />
                 </div>
-                <div>
-                  <h2 className="text-xl font-black text-[#1a1c1d]">Histórico de Atendimentos</h2>
-                  <p className="text-xs font-bold text-[#ed1c24] uppercase tracking-widest">{viewingAttendanceUser.name}</p>
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-xl font-black text-[#1a1c1d] truncate">Histórico de Atendimentos</h2>
+                  <p className="text-[10px] sm:text-xs font-bold text-[#ed1c24] uppercase tracking-widest truncate">{viewingAttendanceUser.name}</p>
                 </div>
               </div>
               <button 
                 onClick={() => setIsAttendanceModalOpen(false)}
-                className="p-2.5 text-[#5e3f3b] hover:bg-[#f4f3f5] rounded-full transition-all hover:rotate-90"
+                className="p-2 sm:p-2.5 text-[#5e3f3b] hover:bg-[#f4f3f5] rounded-full transition-all hover:rotate-90 shrink-0 ml-2"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 sm:p-8 scrollbar-thin">
+            <div className="flex-1 overflow-y-auto p-5 sm:p-8 scrollbar-thin">
               {isLoadingAttendance ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                   <div className="w-10 h-10 border-4 border-[#ed1c24]/20 border-t-[#ed1c24] rounded-full animate-spin" />
@@ -1510,33 +1714,51 @@ Dica: ${hint}`);
                   {attendanceHistory.map((item, index) => (
                     <div 
                       key={item.id || index}
-                      className="bg-[#f4f3f5]/50 border border-[#e8bcb7]/10 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white hover:shadow-md transition-all group"
+                      onClick={() => {
+                        if (item.evaluation_id) {
+                          handleViewEvaluation(item.evaluation_id);
+                        }
+                      }}
+                      className={cn(
+                        "bg-[#f4f3f5]/50 border border-[#e8bcb7]/10 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all group",
+                        item.evaluation_id 
+                          ? "cursor-pointer hover:bg-white hover:border-green-400 hover:shadow-md"
+                          : "hover:bg-white hover:shadow-md"
+                      )}
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-white flex flex-col items-center justify-center shadow-sm text-[#1a1c1d] group-hover:bg-[#ed1c24] group-hover:text-white transition-colors">
+                        <div className="w-10 h-10 rounded-xl bg-white flex flex-col items-center justify-center shadow-sm text-[#1a1c1d] group-hover:bg-[#ed1c24] group-hover:text-white transition-colors shrink-0">
                           <span className="text-[14px] font-black leading-none">{String(item.day).padStart(2, '0')}</span>
                           <span className="text-[8px] font-bold uppercase">{new Date(2000, item.month - 1).toLocaleString('pt-BR', { month: 'short' }).replace('.', '')}</span>
                         </div>
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <Calendar size={12} className="text-[#ed1c24]" />
-                            <span className="text-xs font-bold text-[#1a1c1d]">
-                              {String(item.day).padStart(2, '0')}/{String(item.month).padStart(2, '0')}/{item.year}
-                            </span>
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              <Calendar size={12} className="text-[#ed1c24]" />
+                              <span className="text-xs font-bold text-[#1a1c1d]">
+                                {String(item.day).padStart(2, '0')}/{String(item.month).padStart(2, '0')}/{item.year}
+                              </span>
+                            </div>
+                            {item.evaluation_id && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-200/50">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                Evoluído
+                              </span>
+                            )}
                           </div>
-                          <div className="flex items-center gap-2 opacity-70">
-                            <Layers size={12} className="text-[#5e3f3b]" />
-                            <span className="text-[10px] font-medium text-[#5e3f3b]">
+                          <div className="flex items-center gap-2 opacity-70 min-w-0">
+                            <Layers size={12} className="text-[#5e3f3b] shrink-0" />
+                            <span className="text-[10px] font-medium text-[#5e3f3b] truncate">
                               {item.projects?.name} • {item.modalities?.name}
                             </span>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 bg-white/80 px-3 py-2 rounded-xl border border-[#e8bcb7]/5">
-                        <UserCheck size={14} className="text-green-600" />
-                        <div className="flex flex-col">
+                      <div className="flex items-center gap-2 bg-white/80 px-3 py-2 rounded-xl border border-[#e8bcb7]/5 self-start sm:self-auto">
+                        <UserCheck size={14} className="text-green-600 shrink-0" />
+                        <div className="flex flex-col min-w-0">
                           <span className="text-[8px] font-bold uppercase tracking-widest text-[#5e3f3b] opacity-50">Profissional</span>
-                          <span className="text-[10px] font-bold text-[#1a1c1d]">{item.professionals?.name}</span>
+                          <span className="text-[10px] font-bold text-[#1a1c1d] truncate">{item.professionals?.name}</span>
                         </div>
                       </div>
                     </div>
@@ -1555,13 +1777,240 @@ Dica: ${hint}`);
               )}
             </div>
 
-            <div className="p-6 bg-[#f4f3f5]/30 border-t border-[#f4f3f5]">
+            <div className="p-4 sm:p-5 bg-[#f4f3f5]/30 border-t border-[#f4f3f5]">
               <button 
                 onClick={() => setIsAttendanceModalOpen(false)}
                 className="w-full bg-[#1a1c1d] text-white font-bold py-3 rounded-xl text-sm shadow-lg hover:bg-[#2a2c2d] transition-all active:scale-95"
               >
                 Fechar Histórico
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Evaluation View Modal (Popup on same page) */}
+      {selectedEvalToView && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 no-print">
+          <div 
+            onClick={() => setSelectedEvalToView(null)}
+            className="absolute inset-0 bg-[#1a1c1d]/60 backdrop-blur-sm"
+          />
+          <div 
+            className="relative w-full max-w-2xl bg-white rounded-2xl sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+          >
+            {/* Header */}
+            <div className="p-5 sm:p-8 border-b border-[#f4f3f5] flex justify-between items-center bg-[#f4f3f5]/30">
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white flex items-center justify-center text-[#ed1c24] shadow-sm shrink-0">
+                  <TrendingUp size={20} className="sm:w-6 sm:h-6" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-lg sm:text-xl font-black text-[#1a1c1d] truncate">
+                    Detalhes da Evolução
+                  </h2>
+                  <div className="flex items-center gap-1.5 mt-0.5 text-[#5e3f3b] opacity-60 min-w-0">
+                    <Calendar size={12} className="text-[#ed1c24] shrink-0" />
+                    <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest truncate">
+                      {selectedEvalToView.loading ? 'Carregando...' : (selectedEvalToView.date ? formatDate(selectedEvalToView.date) : '')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedEvalToView(null)}
+                className="p-2 sm:p-2.5 text-[#5e3f3b] hover:bg-[#f4f3f5] rounded-full transition-all hover:rotate-90 shrink-0 ml-2"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-5 sm:space-y-6 scrollbar-thin">
+              {selectedEvalToView.loading ? (
+                <div className="flex flex-col items-center justify-center py-24 gap-4">
+                  <div className="w-10 h-10 border-4 border-[#ed1c24]/20 border-t-[#ed1c24] rounded-full animate-spin" />
+                  <p className="text-[10px] font-bold text-[#5e3f3b] opacity-40 uppercase tracking-widest">Buscando evolução...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Title */}
+                  <div className="space-y-1">
+                    <span className="text-[8px] font-black uppercase tracking-widest text-[#5e3f3b] opacity-40 ml-1">Título</span>
+                    <h3 className="text-xl sm:text-2xl font-black text-[#1a1c1d] leading-snug">{selectedEvalToView.title}</h3>
+                  </div>
+
+                  {/* Grid details */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 bg-[#f4f3f5]/50 p-4 sm:p-6 rounded-xl sm:rounded-[2rem] border border-[#e8bcb7]/10">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[#ed1c24] shadow-sm shrink-0 font-medium">
+                        <User size={18} />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[8px] sm:text-[9px] font-bold text-[#5e3f3b] opacity-40 uppercase tracking-widest truncate">Usuário Atendido</span>
+                        <span className="text-xs font-bold text-[#1a1c1d] truncate">{selectedEvalToView.patient?.name}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[#5e3f3b] shadow-sm shrink-0 font-medium">
+                        <MapPin size={18} />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[8px] sm:text-[9px] font-bold text-[#5e3f3b] opacity-40 uppercase tracking-widest truncate">Unidade de Atendimento</span>
+                        <span className="text-xs font-bold text-[#1a1c1d] truncate">{selectedEvalToView.unit?.name}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[#ed1c24] shadow-sm shrink-0 font-medium">
+                        <UserCheck size={18} />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[8px] sm:text-[9px] font-bold text-[#5e3f3b] opacity-40 uppercase tracking-widest truncate">Profissional Responsável</span>
+                        <span className="text-xs font-bold text-[#ed1c24] truncate">{selectedEvalToView.professional_name || 'Sistema'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[#5e3f3b] shadow-sm shrink-0 font-medium">
+                        {selectedEvalToView.is_private ? <Lock size={18} className="text-[#1a1c1d]" /> : <Unlock size={18} className="text-green-600" />}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[8px] sm:text-[9px] font-bold text-[#5e3f3b] opacity-40 uppercase tracking-widest truncate">Privacidade</span>
+                        <span className="text-xs font-bold text-[#1a1c1d] truncate">
+                          {selectedEvalToView.is_private ? 'Privado' : 'Público'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Content paragraph */}
+                  <div className="space-y-3">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] opacity-40 ml-2 sm:ml-4">Conteúdo da Evolução</span>
+                    <div className="w-full px-5 py-4 sm:px-8 sm:py-6 bg-white rounded-xl sm:rounded-[2rem] text-sm text-[#1a1c1d] font-semibold leading-relaxed border border-[#e8bcb7]/20 shadow-inner whitespace-pre-wrap min-h-[140px] sm:min-h-[160px]">
+                      {selectedEvalToView.content}
+                    </div>
+                  </div>
+
+                  {/* Custom Signature Field styled like the Monthly Attendance Report */}
+                  <div className="flex flex-col items-center mt-8 pt-8 border-t border-[#e8bcb7]/20 pb-4">
+                    <div className="w-64 border-b border-[#1a1c1d] mb-2"></div>
+                    <div className="text-center">
+                      <p className="text-xs font-extrabold text-[#1a1c1d] uppercase tracking-wider">{selectedEvalToView.professional_name || 'Profissional'}</p>
+                      <p className="text-[9px] font-medium text-[#5e3f3b] opacity-60">
+                        {selectedEvalToView.professional_specialty || 'Profissional'} 
+                        {selectedEvalToView.professional_registration ? ` - ${selectedEvalToView.professional_registration}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 sm:p-8 border-t border-[#f4f3f5] flex flex-col sm:flex-row gap-2 sm:gap-3 bg-[#f4f3f5]/10">
+              <button 
+                type="button"
+                onClick={() => {
+                  window.print();
+                }}
+                disabled={selectedEvalToView.loading}
+                className="w-full sm:flex-1 bg-[#ed1c24] text-white hover:bg-[#d11920] font-bold py-3.5 sm:py-4 rounded-xl sm:rounded-2xl text-sm shadow-[0_4px_12px_rgba(237,28,36,0.25)] transition-all active:scale-95 flex items-center justify-center gap-2 order-1 sm:order-2 disabled:opacity-50"
+              >
+                <Printer size={16} className="text-white" />
+                Imprimir esta Evolução
+              </button>
+              <button 
+                 type="button"
+                 onClick={() => setSelectedEvalToView(null)}
+                 className="w-full sm:flex-1 bg-[#f4f3f5] text-[#5e3f3b] font-bold py-3.5 sm:py-4 rounded-xl sm:rounded-2xl text-sm hover:bg-[#e9e8ea] transition-all active:scale-95 text-center order-2 sm:order-1"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Print View: formatted specifically for PDF and A4 print with page-breaks */}
+      {selectedEvalToView && !selectedEvalToView.loading && (
+        <div className="print-only w-full text-[#1a1c1d] bg-white select-text">
+          <div 
+            className="flex flex-col font-sans"
+            style={{ 
+              paddingBottom: '20px'
+            }}
+          >
+            {/* Page Header (with logo) */}
+            <div className="flex justify-between items-start mb-6 pb-6 border-b-2 border-[#ed1c24]/10">
+              <div className="flex items-center gap-6 font-sans">
+                {selectedEvalToView.unit?.logo_url ? (
+                  <div className="w-20 h-20 flex items-center justify-center p-2 bg-white rounded-2xl shadow-sm border border-[#e8bcb7]/10 overflow-hidden">
+                    <img src={selectedEvalToView.unit.logo_url} alt="Logo" className="max-w-full max-h-full object-contain" />
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 flex items-center justify-center p-2 bg-[#f4f3f5] rounded-2xl border border-[#e8bcb7]/10">
+                    <Building2 size={32} className="text-[#ed1c24] opacity-20" />
+                  </div>
+                )}
+                <div>
+                  <h1 className="text-xl font-black text-[#ed1c24] uppercase tracking-tight">Relatório de Evolução Individual</h1>
+                  <p className="text-xs font-bold text-[#5e3f3b] opacity-60 uppercase tracking-widest mt-1">SIRA - Sistema Integrado de Registro de Atendimentos</p>
+                </div>
+              </div>
+              <div className="text-right text-[10px] text-[#5e3f3b] font-medium mt-2">
+                <p>Data de Emissão: {formatDate(new Date().toISOString().split('T')[0])}</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="flex justify-between items-start border-b border-[#e8bcb7]/20 pb-4">
+                <div>
+                  <span className="text-[10px] font-bold text-[#5e3f3b] opacity-60 uppercase tracking-widest">Evolução de Atendimento - Registro de Acompanhamento</span>
+                  <h2 className="text-2xl font-black text-[#1a1c1d] mt-1">{selectedEvalToView.title}</h2>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#ed1c24]">{formatDate(selectedEvalToView.date)}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 bg-[#f4f3f5] p-5 rounded-2xl border border-[#e8bcb7]/20 mb-8 font-sans">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b] opacity-60">Usuário Atendido</p>
+                  <p className="text-sm font-bold text-[#1a1c1d]">{selectedEvalToView.patient?.name}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b] opacity-60">Unidade</p>
+                  <p className="text-sm font-bold text-[#1a1c1d]">{selectedEvalToView.unit?.name}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b] opacity-60">Profissional Responsável</p>
+                  <p className="text-sm font-bold text-[#1a1c1d]">{selectedEvalToView.professional_name || 'Sistema'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#5e3f3b] opacity-60">Tipo de Privacidade</p>
+                  <p className="text-sm font-bold text-[#1a1c1d]">{selectedEvalToView.is_private ? 'Privado (Confidencial)' : 'Público'}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="text-[10px] font-black text-[#5e3f3b] opacity-60 uppercase tracking-widest w-full border-b border-[#e8bcb7]/15 pb-1">Descrição da Evolução</h4>
+                <div className="text-sm text-[#1a1c1d] leading-relaxed whitespace-pre-wrap p-6 border border-[#e8bcb7]/25 rounded-2xl bg-white min-h-[150px]">
+                  {selectedEvalToView.content}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-12 flex flex-col items-center pt-8 border-t border-[#e8bcb7]/20 print-signature font-sans break-inside-avoid">
+              <div className="w-72 border-b border-[#1a1c1d] mb-3"></div>
+              <div className="text-center">
+                <p className="text-sm font-bold text-[#1a1c1d]">{selectedEvalToView.professional_name || '_____________________________'}</p>
+                <p className="text-[10px] font-medium text-[#5e3f3b] opacity-60">
+                  {selectedEvalToView.professional_specialty || 'Profissional'} 
+                  {selectedEvalToView.professional_registration ? ` - ${selectedEvalToView.professional_registration}` : ''}
+                </p>
+              </div>
             </div>
           </div>
         </div>

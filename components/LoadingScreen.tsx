@@ -48,7 +48,7 @@ export function LoadingScreen({ userName }: LoadingScreenProps) {
               transition={{ delay: 0.4 }}
               className="text-base font-semibold text-[#5e3f3b] text-center mt-4 tracking-tight"
             >
-              Seja bem-vindo, <span className="font-extrabold text-[#ed1c24]">{userName}</span>!
+              Seja bem-vindo(a), <span className="font-extrabold text-[#ed1c24]">{userName}</span>!
             </motion.p>
           )}
         </div>

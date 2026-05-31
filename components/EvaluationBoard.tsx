@@ -53,9 +53,16 @@ interface EvaluationBoardProps {
     email?: string;
   };
   unitLogoUrl?: string | null;
+  activeEvaluationId?: string | null;
+  onClearActiveEvaluation?: () => void;
 }
 
-export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardProps) {
+export function EvaluationBoard({ 
+  currentUser, 
+  unitLogoUrl,
+  activeEvaluationId,
+  onClearActiveEvaluation
+}: EvaluationBoardProps) {
   const isAdmin = currentUser?.permission === 'Administrador';
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [patients, setPatients] = useState<any[]>([]);
@@ -79,6 +86,7 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
   const [professionalUnits, setProfessionalUnits] = useState<any[]>([]);
   const [showOnlyPrivate, setShowOnlyPrivate] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
   
   // Pagination State (quebra de página de registros)
   const [currentPage, setCurrentPage] = useState(1);
@@ -396,6 +404,18 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (activeEvaluationId && evaluations.length > 0) {
+      const found = evaluations.find(e => e.id === activeEvaluationId);
+      if (found) {
+        setViewingItem(found);
+        if (onClearActiveEvaluation) {
+          onClearActiveEvaluation();
+        }
+      }
+    }
+  }, [activeEvaluationId, evaluations, onClearActiveEvaluation]);
+
   const handleOpenModal = (item?: Evaluation) => {
     if (item) {
       setEditingItem(item);
@@ -551,145 +571,179 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
       {/* Interactive Page View - Hidden when printing */}
       <div className="space-y-6 no-print">
         {/* Header & Filters */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-2xl sm:rounded-[2rem] shadow-sm border border-[#e8bcb7]/10">
-        <div className="space-y-1">
-          <h2 className="text-xl font-black text-[#1a1c1d]">
-            {showTrash ? 'Lixeira de Evoluções' : 'Evoluções de Atendimento'}
-          </h2>
-          {showTrash && (
-            <p className="text-[10px] font-black text-[#ed1c24] uppercase tracking-widest animate-pulse">
-              Visualizando itens na lixeira
-            </p>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] shadow-sm border border-[#e8bcb7]/10">
+        <div className="flex items-center justify-between w-full lg:w-auto">
+          <div className="space-y-1">
+            <h2 className="text-lg sm:text-xl font-black text-[#1a1c1d]">
+              {showTrash ? 'Lixeira de Evoluções' : 'Evoluções de Atendimento'}
+            </h2>
+            {showTrash && (
+              <p className="text-[10px] font-black text-[#ed1c24] uppercase tracking-widest animate-pulse">
+                Visualizando itens na lixeira
+              </p>
+            )}
+          </div>
+          
+          {!showTrash && (
+            <button 
+              onClick={() => handleOpenModal()}
+              className="lg:hidden flex items-center justify-center gap-1.5 bg-[#1a1c1d] text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-black/15 active:scale-95 transition-all shrink-0"
+            >
+              <Plus size={14} />
+              <span>Nova</span>
+            </button>
           )}
         </div>
         
-        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 w-full lg:w-auto">
-          <div className="relative group w-full sm:w-auto sm:min-w-[200px]">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5e3f3b] opacity-40 group-focus-within:text-[#ed1c24] group-focus-within:opacity-100 transition-all" size={18} />
-            <input 
-              type="text" 
-              placeholder="Buscar por título ou usuário..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-[#f4f3f5] rounded-xl text-sm border-none focus:ring-2 focus:ring-[#ed1c24]/20 transition-all font-medium"
-            />
-          </div>
+        <div className="flex flex-col gap-3 w-full lg:w-auto">
+          <div className="flex items-center gap-2 w-full">
+            <div className="relative group flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5e3f3b] opacity-40 group-focus-within:text-[#ed1c24] group-focus-within:opacity-100 transition-all" size={16} />
+              <input 
+                type="text" 
+                placeholder="Buscar por título ou usuário..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-[#f4f3f5] rounded-xl text-xs sm:text-sm border-none focus:ring-2 focus:ring-[#ed1c24]/20 transition-all font-semibold"
+              />
+            </div>
 
-          <select
-            value={unitFilter}
-            onChange={(e) => {
-              setUnitFilter(e.target.value);
-              setPatientFilter(''); // Reset patient filter when unit changes
-              setProfessionalFilter(''); // Reset professional filter when unit changes
-            }}
-            className="w-full sm:w-auto px-4 py-3 bg-[#f4f3f5] rounded-xl text-sm border-none focus:ring-2 focus:ring-[#ed1c24]/20 transition-all font-bold text-[#5e3f3b]"
-          >
-            <option value="">Todas as Unidades</option>
-            {units.map(u => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
-
-          <select
-            value={professionalFilter}
-            onChange={(e) => setProfessionalFilter(e.target.value)}
-            disabled={!unitFilter}
-            className="w-full sm:w-auto px-4 py-3 bg-[#f4f3f5] rounded-xl text-sm border-none focus:ring-2 focus:ring-[#ed1c24]/20 transition-all font-bold text-[#5e3f3b] sm:max-w-[220px] disabled:opacity-50 disabled:cursor-not-allowed text-ellipsis overflow-hidden"
-          >
-            {unitFilter ? (
-              <>
-                <option value="">Todos os Profissionais</option>
-                {professionalsList
-                  .filter(p => professionalUnits.some(pu => pu.professional_id === p.id && pu.unit_id === unitFilter))
-                  .map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))
-                }
-              </>
-            ) : (
-              <option value="">Selecione uma Unidade primeiro</option>
-            )}
-          </select>
-
-          <select
-            value={patientFilter}
-            onChange={(e) => setPatientFilter(e.target.value)}
-            disabled={!unitFilter}
-            className="w-full sm:w-auto px-4 py-3 bg-[#f4f3f5] rounded-xl text-sm border-none focus:ring-2 focus:ring-[#ed1c24]/20 transition-all font-bold text-[#5e3f3b] sm:max-w-[220px] disabled:opacity-50 disabled:cursor-not-allowed text-ellipsis overflow-hidden"
-          >
-            {unitFilter ? (
-              <>
-                <option value="">Todos os Usuários Atendidos</option>
-                {patients
-                  .filter(p => p.unit_id === unitFilter)
-                  .map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))
-                }
-              </>
-            ) : (
-              <option value="">Selecione uma Unidade primeiro</option>
-            )}
-          </select>
-
-          <div className="flex gap-2 w-full sm:w-auto">
-            {!isAdmin && (
-              <button
-                onClick={() => setShowOnlyPrivate(!showOnlyPrivate)}
-                className={cn(
-                  "flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all active:scale-95",
-                  showOnlyPrivate 
-                    ? "bg-[#1a1c1d] text-white shadow-md shadow-black/20" 
-                    : "bg-[#f4f3f5] text-[#5e3f3b] hover:bg-[#e8bcb7]/10"
-                )}
-              >
-                {showOnlyPrivate ? <Lock size={16} /> : <Unlock size={16} />}
-                <span>{showOnlyPrivate ? 'Privados' : 'Todos'}</span>
-              </button>
-            )}
-
-            {/* Trash Bin Access Button */}
             <button
-              onClick={() => setShowTrash(!showTrash)}
+              onClick={() => setShowMobileFilters(!showMobileFilters)}
               className={cn(
-                "flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 border",
-                showTrash
-                  ? "bg-[#ed1c24] text-white border-[#ed1c24] shadow-md shadow-[#ed1c24]/25"
-                  : "bg-[#f4f3f5] text-[#5e3f3b] border-transparent hover:bg-[#e8bcb7]/10"
+                "lg:hidden flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all active:scale-95 shrink-0 select-none h-[42px]",
+                showMobileFilters || unitFilter || professionalFilter || patientFilter || showOnlyPrivate
+                  ? "bg-[#ed1c24]/10 text-[#ed1c24] border-[#ed1c24]/25"
+                  : "bg-[#f4f3f5] text-[#5e3f3b] border-transparent"
               )}
             >
-              <Trash2 size={16} />
-              <span>Lixeira</span>
-              {trashCount > 0 && (
-                <span className={cn(
-                  "px-1.5 py-0.5 rounded-full text-[9px] font-black leading-none",
-                  showTrash ? "bg-white text-[#ed1c24]" : "bg-[#ed1c24] text-white"
-                )}>
-                  {trashCount}
-                </span>
+              <Filter size={16} />
+              <span>Filtros</span>
+              {(unitFilter || professionalFilter || patientFilter || showOnlyPrivate) && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[#ed1c24] animate-pulse" />
               )}
             </button>
+          </div>
 
-            {filteredEvaluations.length > 0 && !showTrash && (
-              <button 
-                onClick={() => window.print()}
-                title="Imprimir evoluções filtradas com quebra de página"
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#ed1c24] text-white hover:bg-[#d11920] px-4 py-3 rounded-xl text-sm font-bold shadow-[0_4px_12px_rgba(237,28,36,0.25)] transition-all active:scale-95 whitespace-nowrap"
-              >
-                <Printer size={18} className="text-white" />
-                <span className="hidden sm:inline">Imprimir</span>
-              </button>
-            )}
+          <div className={cn(
+            "w-full transition-all duration-300 lg:flex lg:flex-row lg:items-center gap-3",
+            showMobileFilters ? "flex flex-col opacity-100 mt-2" : "hidden lg:flex"
+          )}>
+            <select
+              value={unitFilter}
+              onChange={(e) => {
+                setUnitFilter(e.target.value);
+                setPatientFilter('');
+                setProfessionalFilter('');
+              }}
+              className="w-full lg:w-auto px-4 py-2.5 sm:py-3 bg-[#f4f3f5] rounded-xl text-xs sm:text-sm border-none focus:ring-2 focus:ring-[#ed1c24]/20 transition-all font-bold text-[#5e3f3b]"
+            >
+              <option value="">Todas as Unidades</option>
+              {units.map(u => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
 
-            {!showTrash && (
-              <button 
-                onClick={() => handleOpenModal()}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#1a1c1d] text-white px-6 py-3 rounded-xl text-sm font-bold shadow-lg hover:bg-[#2a2c2d] transition-all active:scale-95 whitespace-nowrap"
+            <select
+              value={professionalFilter}
+              onChange={(e) => setProfessionalFilter(e.target.value)}
+              disabled={!unitFilter}
+              className="w-full lg:w-auto px-4 py-2.5 sm:py-3 bg-[#f4f3f5] rounded-xl text-xs sm:text-sm border-none focus:ring-2 focus:ring-[#ed1c24]/20 transition-all font-bold text-[#5e3f3b] lg:max-w-[200px] disabled:opacity-50 disabled:cursor-not-allowed text-ellipsis overflow-hidden"
+            >
+              {unitFilter ? (
+                <>
+                  <option value="">Todos os Profissionais</option>
+                  {professionalsList
+                    .filter(p => professionalUnits.some(pu => pu.professional_id === p.id && pu.unit_id === unitFilter))
+                    .map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))
+                  }
+                </>
+              ) : (
+                <option value="">Selecione uma Unidade primeiro</option>
+              )}
+            </select>
+
+            <select
+              value={patientFilter}
+              onChange={(e) => setPatientFilter(e.target.value)}
+              disabled={!unitFilter}
+              className="w-full lg:w-auto px-4 py-2.5 sm:py-3 bg-[#f4f3f5] rounded-xl text-xs sm:text-sm border-none focus:ring-2 focus:ring-[#ed1c24]/20 transition-all font-bold text-[#5e3f3b] lg:max-w-[200px] disabled:opacity-50 disabled:cursor-not-allowed text-ellipsis overflow-hidden"
+            >
+              {unitFilter ? (
+                <>
+                  <option value="">Todos os Usuários Atendidos</option>
+                  {patients
+                    .filter(p => p.unit_id === unitFilter)
+                    .map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))
+                  }
+                </>
+              ) : (
+                <option value="">Selecione uma Unidade primeiro</option>
+              )}
+            </select>
+
+            <div className="grid grid-cols-2 lg:flex gap-2 w-full lg:w-auto mt-2 lg:mt-0">
+              {!isAdmin && (
+                <button
+                  onClick={() => setShowOnlyPrivate(!showOnlyPrivate)}
+                  className={cn(
+                    "flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all active:scale-95",
+                    showOnlyPrivate 
+                      ? "bg-[#1a1c1d] text-white shadow-sm" 
+                      : "bg-[#f4f3f5] text-[#5e3f3b] hover:bg-[#e8bcb7]/10"
+                  )}
+                >
+                  {showOnlyPrivate ? <Lock size={14} /> : <Unlock size={14} />}
+                  <span>{showOnlyPrivate ? 'Privados' : 'Todos'}</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => setShowTrash(!showTrash)}
+                className={cn(
+                  "flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all active:scale-95 border",
+                  showTrash
+                    ? "bg-[#ed1c24] text-white border-[#ed1c24] shadow-sm"
+                    : "bg-[#f4f3f5] text-[#5e3f3b] border-transparent hover:bg-[#e8bcb7]/10"
+                )}
               >
-                <Plus size={18} />
-                <span>Nova Evolução</span>
+                <Trash2 size={14} />
+                <span>Lixeira</span>
+                {trashCount > 0 && (
+                  <span className={cn(
+                    "px-1.5 py-0.5 rounded-full text-[9px] font-black leading-none",
+                    showTrash ? "bg-white text-[#ed1c24]" : "bg-[#ed1c24] text-white"
+                  )}>
+                    {trashCount}
+                  </span>
+                )}
               </button>
-            )}
+
+              {filteredEvaluations.length > 0 && !showTrash && (
+                <button 
+                  onClick={() => window.print()}
+                  title="Imprimir evoluções filtradas com quebra de página"
+                  className="col-span-2 lg:col-span-1 flex items-center justify-center gap-2 bg-[#ed1c24] text-white hover:bg-[#d11920] px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-[#ed1c24]/15 transition-all active:scale-95 whitespace-nowrap"
+                >
+                  <Printer size={14} className="text-white" />
+                  <span>Imprimir</span>
+                </button>
+              )}
+
+              {!showTrash && (
+                <button 
+                  onClick={() => handleOpenModal()}
+                  className="hidden lg:flex items-center justify-center gap-2 bg-[#1a1c1d] text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md hover:bg-[#2a2c2d] transition-all active:scale-95 whitespace-nowrap"
+                >
+                  <Plus size={14} />
+                  <span>Nova Evolução</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -753,7 +807,7 @@ export function EvaluationBoard({ currentUser, unitLogoUrl }: EvaluationBoardPro
                       <h3 className="text-lg font-black text-[#1a1c1d] leading-tight line-clamp-1">{ev.title}</h3>
                     </div>
                     {canDelete && (
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity shrink-0">
                         {isCurrentlyDeleted ? (
                           <>
                             {/* Restore Button */}

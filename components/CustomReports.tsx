@@ -606,7 +606,7 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
     <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500 pb-20 px-4 md:px-0">
       {/* Categories Horizontal Navigation Bar */}
       <div className="flex justify-center no-print px-2 sm:px-4">
-        <div className="bg-[#f4f3f5] p-1.5 rounded-2xl w-full max-w-full sm:max-w-2xl border border-[#e8bcb7]/10 flex gap-1 sm:gap-1.5 md:gap-2">
+        <div className="bg-[#f4f3f5] p-1.5 rounded-2xl w-full max-w-full sm:max-w-2xl border border-[#e8bcb7]/10 flex gap-1 sm:gap-1.5 md:gap-2 overflow-x-auto scrollbar-none">
           {reportCategories.map((cat) => (
             <button
               key={cat.id}
@@ -629,7 +629,7 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
 
       {/* Report Interface */}
       <div className="bg-white rounded-[2rem] lg:rounded-[2.5rem] border border-[#e8bcb7]/10 shadow-sm overflow-hidden print:border-none print:shadow-none">
-        <div className="p-6 lg:p-8 border-b border-[#e8bcb7]/10 bg-[#faf9fb]/50 no-print">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-[#e8bcb7]/10 bg-[#faf9fb]/50 no-print">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-1">
               <h2 className="text-lg lg:text-xl font-black text-[#1a1c1d] tracking-tight">
@@ -682,7 +682,7 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
 
                   {/* Dropdown Card */}
                   {isConsolidatedDropdownOpen && (
-                    <div className="absolute z-50 left-0 mt-2 w-72 bg-white rounded-2xl border border-[#e8bcb7]/25 shadow-xl shadow-[#5e3f3b]/5 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="absolute z-50 right-0 sm:right-auto sm:left-0 mt-2 w-72 bg-white rounded-2xl border border-[#e8bcb7]/25 shadow-xl shadow-[#5e3f3b]/5 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                       {/* Search Input */}
                       <div className="p-3 border-b border-[#faf9fb] bg-[#faf9fb]/50 flex items-center gap-2">
                         <svg className="w-3.5 h-3.5 text-[#ed1c24] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -839,7 +839,7 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
           </div>
         </div>
 
-        <div className="p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {reportType === 'attendance' ? (
             loading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -850,7 +850,7 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
               <div className="space-y-8 lg:space-y-10">
                 {/* Total Summary */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6">
-                  <div className="bg-[#ed1c24] text-white p-6 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] shadow-xl shadow-[#ed1c24]/10">
+                  <div className="bg-[#ed1c24] text-white p-4 sm:p-6 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] shadow-xl shadow-[#ed1c24]/10">
                     <div className="flex items-center justify-between mb-4">
                       <ClipboardList size={24} className="opacity-40" />
                       <span className="text-[9px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full">PRESENÇAS</span>
@@ -859,12 +859,12 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
                     <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mt-1">Neste mês</p>
                   </div>
                   
-                  <div className="bg-white p-6 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] border border-[#e8bcb7]/20 shadow-sm flex flex-col justify-center">
+                  <div className="bg-white p-4 sm:p-6 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] border border-[#e8bcb7]/20 shadow-sm flex flex-col justify-center">
                     <p className="text-[9px] font-black uppercase tracking-widest text-[#5e3f3b] opacity-40 mb-2">Unidades com Registro</p>
                     <p className="text-2xl lg:text-3xl font-black text-[#1a1c1d]">{Object.keys(consolidatedData.units).length}</p>
                   </div>
 
-                  <div className="bg-white p-6 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] border border-[#e8bcb7]/20 shadow-sm flex flex-col justify-center">
+                  <div className="bg-white p-4 sm:p-6 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] border border-[#e8bcb7]/20 shadow-sm flex flex-col justify-center">
                     <p className="text-[9px] font-black uppercase tracking-widest text-[#5e3f3b] opacity-40 mb-2">Projetos Atendidos</p>
                     <p className="text-2xl lg:text-3xl font-black text-[#1a1c1d]">{Object.keys(consolidatedData.projects).length}</p>
                   </div>
@@ -877,7 +877,7 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
                       <Building2 size={16} className="text-[#ed1c24]" />
                       <h3 className="text-[10px] font-black uppercase tracking-widest text-[#1a1c1d]">Atendimentos por Unidade</h3>
                     </div>
-                    <div className="bg-[#faf9fb] rounded-[1.5rem] lg:rounded-[2rem] p-4 lg:p-6 border border-[#e8bcb7]/10">
+                    <div className="bg-[#faf9fb] rounded-[1.5rem] lg:rounded-[2rem] p-3.5 sm:p-5 lg:p-6 border border-[#e8bcb7]/10">
                       <div className="space-y-2">
                         {Object.entries(consolidatedData.units).length > 0 ? (
                           Object.entries(consolidatedData.units).map(([name, count]) => (
@@ -899,7 +899,7 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
                       <FolderKanban size={16} className="text-[#ed1c24]" />
                       <h3 className="text-[10px] font-black uppercase tracking-widest text-[#1a1c1d]">Atendimentos por Projeto</h3>
                     </div>
-                    <div className="bg-[#faf9fb] rounded-[1.5rem] lg:rounded-[2rem] p-4 lg:p-6 border border-[#e8bcb7]/10">
+                    <div className="bg-[#faf9fb] rounded-[1.5rem] lg:rounded-[2rem] p-3.5 sm:p-5 lg:p-6 border border-[#e8bcb7]/10">
                       <div className="space-y-2">
                         {Object.entries(consolidatedData.projects).length > 0 ? (
                           Object.entries(consolidatedData.projects).map(([name, count]) => (
@@ -921,7 +921,7 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
                       <PieChart size={16} className="text-[#ed1c24]" />
                       <h3 className="text-[10px] font-black uppercase tracking-widest text-[#1a1c1d]">Atendimentos por Modalidade</h3>
                     </div>
-                    <div className="bg-[#faf9fb] rounded-[1.5rem] lg:rounded-[2rem] p-4 lg:p-6 border border-[#e8bcb7]/10">
+                    <div className="bg-[#faf9fb] rounded-[1.5rem] lg:rounded-[2rem] p-3.5 sm:p-5 lg:p-6 border border-[#e8bcb7]/10">
                       {Object.entries(consolidatedData.modalities).length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                           {Object.entries(consolidatedData.modalities).map(([name, count]) => (
@@ -996,7 +996,7 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
                       type="button"
                       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                       className={cn(
-                        "w-full pl-14 pr-12 py-4 bg-[#f4f3f5] rounded-2xl text-sm font-bold border border-transparent text-left focus:outline-none transition-all duration-300 relative select-none flex items-center justify-between",
+                        "w-full px-4 sm:px-6 py-3.5 sm:py-4 bg-[#f4f3f5] rounded-2xl text-sm font-bold border border-transparent text-left focus:outline-none transition-all duration-300 relative select-none flex items-center justify-between",
                         isDropdownOpen ? "bg-white border-[#ed1c24]/20 shadow-md ring-4 ring-[#ed1c24]/5" : "hover:bg-[#faeff0]"
                       )}
                     >
@@ -1255,20 +1255,20 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
 
                     {/* Interactive Page View - Hidden when printing */}
                     <div className="space-y-6 no-print">
-                      <div className="flex items-center justify-between px-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2 sm:px-4">
                         <div className="space-y-1">
                           <h3 className="text-[10px] font-black uppercase tracking-widest text-[#1a1c1d]">Lista Consolidada Mensal</h3>
                           <p className="text-[9px] font-bold text-[#5e3f3b] opacity-40 uppercase tracking-widest">Sem duplicidades diárias por usuário</p>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-[10px] font-black uppercase tracking-widest bg-[#ed1c24]/10 text-[#ed1c24] px-4 py-2 rounded-full border border-[#ed1c24]/10 shadow-sm">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                          <span className="text-[10px] font-black uppercase tracking-widest bg-[#ed1c24]/10 text-[#ed1c24] px-3 sm:px-4 py-2 rounded-full border border-[#ed1c24]/10 shadow-sm">
                             {unitDetailedData.length} Usuários Atendidos
                           </span>
                           <button 
                             onClick={() => window.print()}
-                            className="flex items-center gap-2 bg-[#ed1c24] hover:bg-[#d11920] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-[0_4px_12px_rgba(237,28,36,0.3)] active:scale-95"
+                            className="flex items-center gap-2 bg-[#ed1c24] hover:bg-[#d11920] text-white px-4 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-[0_4px_12px_rgba(237,28,36,0.3)] active:scale-95"
                           >
-                            <Printer size={16} />
+                            <Printer size={16} className="shrink-0" />
                             <span>Imprimir Relatório</span>
                           </button>
                         </div>
@@ -1310,8 +1310,8 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
               </div>
 
               {/* Dynamic Filters Bar */}
-              <div className="bg-[#faf9fb] p-6 rounded-[2rem] border border-[#e8bcb7]/10 space-y-4 no-print">
-                <div className="flex items-center justify-between">
+              <div className="bg-[#faf9fb] p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] border border-[#e8bcb7]/10 space-y-4 no-print">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-2">
                     <Filter size={16} className="text-[#ed1c24]" />
                     <span className="text-[10px] font-black uppercase tracking-widest text-[#1a1c1d]">Painel de Filtros Operacionais</span>
@@ -1444,7 +1444,7 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
 
               {/* Statistical Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="p-6 rounded-[1.5rem] bg-amber-50/50 border border-amber-200/50 flex items-center justify-between shadow-sm">
+                <div className="p-4 sm:p-6 rounded-xl sm:rounded-[1.5rem] bg-amber-50/50 border border-amber-200/50 flex items-center justify-between shadow-sm">
                   <div className="space-y-1">
                     <p className="text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] opacity-60">Beneficiários em Risco</p>
                     <h3 className="text-3xl font-black text-amber-600">{laPatients.length}</h3>
@@ -1454,7 +1454,7 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
                   </div>
                 </div>
 
-                <div className="p-6 rounded-[1.5rem] bg-rose-50/50 border border-rose-200/50 flex items-center justify-between shadow-sm">
+                <div className="p-4 sm:p-6 rounded-xl sm:rounded-[1.5rem] bg-rose-50/50 border border-rose-200/50 flex items-center justify-between shadow-sm">
                   <div className="space-y-1">
                     <p className="text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] opacity-60">Status Crítico (&lt;25%)</p>
                     <h3 className="text-3xl font-black text-rose-600">{laPatients.filter(p => p.riskLevel === 'crítico').length}</h3>
@@ -1464,7 +1464,7 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
                   </div>
                 </div>
 
-                <div className="p-6 rounded-[1.5rem] bg-[#ed1c24]/5 border border-[#e8bcb7]/20 flex items-center justify-between shadow-sm">
+                <div className="p-4 sm:p-6 rounded-xl sm:rounded-[1.5rem] bg-[#ed1c24]/5 border border-[#e8bcb7]/20 flex items-center justify-between shadow-sm">
                   <div className="space-y-1 flex-1">
                     <p className="text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] opacity-60">Frequência Média de Risco</p>
                     <h3 className="text-3xl font-black text-[#ed1c24] font-sans">
@@ -1480,20 +1480,20 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
               </div>
 
               {/* Statistical List Table */}
-              <div className="overflow-x-auto rounded-[2rem] border border-[#e8bcb7]/15 bg-white shadow-sm overflow-hidden">
+              <div className="overflow-x-auto rounded-2xl sm:rounded-[2rem] border border-[#e8bcb7]/15 bg-white shadow-sm overflow-hidden">
                 <table className="w-full border-collapse text-left">
                   <thead>
                     <tr className="border-b border-[#faf9fb] bg-[#f4f3f5]/50 no-print select-none">
-                      <th className="py-4 px-6 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b]">Beneficiário</th>
-                      <th className="py-4 px-6 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b]">Unidade / Polo</th>
-                      <th className="py-4 px-6 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b]">Projeto Participante</th>
-                      <th className="py-4 px-6 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b]">Turma</th>
-                      <th className="py-4 px-6 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] text-center">Faltas</th>
-                      <th className="py-4 px-6 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] text-center">Última Presença</th>
-                      <th className="py-4 px-6 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] text-center">Inatividade (Dias)</th>
-                      <th className="py-4 px-6 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] text-center">Frequência</th>
-                      <th className="py-4 px-6 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] text-center">Grau de Risco</th>
-                      <th className="py-4 px-6 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] text-right">Controles Rápidos</th>
+                      <th className="py-3 px-3.5 md:py-4 md:px-5 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b]">Beneficiário</th>
+                      <th className="py-3 px-3.5 md:py-4 md:px-5 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b]">Unidade / Polo</th>
+                      <th className="py-3 px-3.5 md:py-4 md:px-5 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b]">Projeto Participante</th>
+                      <th className="py-3 px-3.5 md:py-4 md:px-5 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b]">Turma</th>
+                      <th className="py-3 px-3.5 md:py-4 md:px-5 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] text-center">Faltas</th>
+                      <th className="py-3 px-3.5 md:py-4 md:px-5 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] text-center">Última Presença</th>
+                      <th className="py-3 px-3.5 md:py-4 md:px-5 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] text-center">Inatividade (Dias)</th>
+                      <th className="py-3 px-3.5 md:py-4 md:px-5 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] text-center">Frequência</th>
+                      <th className="py-3 px-3.5 md:py-4 md:px-5 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] text-center">Grau de Risco</th>
+                      <th className="py-3 px-3.5 md:py-4 md:px-5 text-[10px] font-black uppercase tracking-widest text-[#5e3f3b] text-right">Controles Rápidos</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#faf9fb]">
@@ -1512,7 +1512,7 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
                           badgeClass = "bg-rose-100 text-rose-700 border border-rose-200 animate-pulse";
                           badgeText = "Crítico (<25%)";
                         } else if (p.riskLevel === 'vermelho') {
-                          badgeClass = "bg-red-50 text-red-600 border border-red-100";
+                           badgeClass = "bg-red-50 text-red-600 border border-red-100";
                           badgeText = "Vermelho (<50%)";
                         } else {
                           badgeClass = "bg-amber-50 text-amber-700 border border-amber-100";
@@ -1521,18 +1521,18 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
 
                         return (
                           <tr key={p.id} className="hover:bg-[#faf9fb]/50 transition-colors">
-                            <td className="py-4 px-6">
+                            <td className="py-3 px-3.5 md:py-4 md:px-5">
                               <div className="font-bold text-[#1a1c1d] text-xs leading-none">{p.name}</div>
                               <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1">Nº Prontuário: {p.record_number}</div>
                             </td>
-                            <td className="py-4 px-6 text-xs text-[#5e3f3b] font-semibold">{p.unitName}</td>
-                            <td className="py-4 px-6 text-xs text-[#5e3f3b] font-semibold max-w-[200px] truncate" title={p.projectName}>
+                            <td className="py-3 px-3.5 md:py-4 md:px-5 text-xs text-[#5e3f3b] font-semibold">{p.unitName}</td>
+                            <td className="py-3 px-3.5 md:py-4 md:px-5 text-xs text-[#5e3f3b] font-semibold max-w-[200px] truncate" title={p.projectName}>
                               {p.projectName}
                             </td>
-                            <td className="py-4 px-6 text-xs text-[#5e3f3b] font-bold select-none">{p.turma}</td>
-                            <td className="py-4 px-6 text-xs font-black text-center text-rose-600">{p.absences}</td>
-                            <td className="py-4 px-6 text-xs font-semibold text-center text-slate-700">{p.latestDateStr}</td>
-                            <td className="py-4 px-6 text-xs font-semibold text-center">
+                            <td className="py-3 px-3.5 md:py-4 md:px-5 text-xs text-[#5e3f3b] font-bold select-none">{p.turma}</td>
+                            <td className="py-3 px-3.5 md:py-4 md:px-5 text-xs font-black text-center text-rose-600">{p.absences}</td>
+                            <td className="py-3 px-3.5 md:py-4 md:px-5 text-xs font-semibold text-center text-slate-700">{p.latestDateStr}</td>
+                            <td className="py-3 px-3.5 md:py-4 md:px-5 text-xs font-semibold text-center">
                               <span className={cn(
                                 "px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider",
                                 p.daysAbsent >= 30 ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-700"
@@ -1540,13 +1540,13 @@ export function CustomReports({ currentUser }: CustomReportsProps) {
                                 {p.daysAbsent === 999 ? 'Sem participações' : `${p.daysAbsent} dias`}
                               </span>
                             </td>
-                            <td className="py-4 px-6 text-xs font-black text-center text-gray-950">{p.frequency}%</td>
-                            <td className="py-4 px-6 text-center select-none">
+                            <td className="py-3 px-3.5 md:py-4 md:px-5 text-xs font-black text-center text-gray-950">{p.frequency}%</td>
+                            <td className="py-3 px-3.5 md:py-4 md:px-5 text-center select-none">
                               <span className={cn("px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider", badgeClass)}>
                                 {badgeText}
                               </span>
                             </td>
-                            <td className="py-4 px-6 text-right">
+                            <td className="py-3 px-3.5 md:py-4 md:px-5 text-right">
                               <div className="flex items-center justify-end gap-1.5 no-print">
                                 <button 
                                   onClick={() => {

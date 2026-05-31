@@ -19,15 +19,17 @@ interface BottomNavProps {
 }
 
 const navItems = [
-  { id: 'atendimentos' as ViewType, icon: LayoutDashboard, label: 'REG. MENSAL' },
   { id: 'lancamento' as ViewType, icon: CalendarCheck, label: 'REG. DIÁRIO' },
+  { id: 'atendimentos' as ViewType, icon: LayoutDashboard, label: 'REG. MENSAL' },
+  { id: 'avaliacoes' as ViewType, icon: TrendingUp, label: 'EVOLUÇÕES' },
   { id: 'relatorio' as ViewType, icon: FileText, label: 'RELATÓRIO' },
   { id: 'relatorios_personalizados' as ViewType, icon: FileBarChart, label: 'ANÁLISE' },
 ];
 
 export function BottomNav({ currentView, onViewChange, permission = '' }: BottomNavProps) {
-  const isProfessional = permission === 'Profissional';
-  const filteredItems = isProfessional 
+  const isProfessional = permission === 'Profissional' || permission === 'Professional';
+  const isAdminOrUnitAdmin = permission === 'Administrador' || permission === 'Administrador por Unidade';
+  const filteredItems = (isProfessional || isAdminOrUnitAdmin) 
     ? navItems.filter(item => item.id !== 'relatorios_personalizados')
     : navItems;
 
